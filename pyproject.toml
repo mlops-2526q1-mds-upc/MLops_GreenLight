@@ -1,0 +1,52 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "mlops_greenlight"
+version = "0.0.1"
+description = "Detection and classification of traffic lights"
+authors = [
+  { name = "GreenLight" },
+]
+
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    
+]
+dependencies = [
+    "ipython",
+    "jupyterlab",
+    "matplotlib",
+    "notebook",
+    "numpy",
+    "pandas",
+    "pip",
+    "pytest",
+    "python-dotenv",
+    "ruff",
+    "scikit-learn",
+]
+requires-python = "~=3.10.0"
+
+
+[tool.ruff]
+line-length = 99
+src = ["mlops_greenlight"]
+include = ["pyproject.toml", "mlops_greenlight/**/*.py"]
+
+[tool.ruff.lint]
+extend-select = ["I"]  # Add import sorting
+
+[tool.ruff.lint.isort]
+known-first-party = ["mlops_greenlight"]
+force-sort-within-sections = true
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pylint>=3.3.8",
+    "pytest>=8.4.2",
+]
+
