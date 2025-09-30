@@ -59,3 +59,12 @@ Detection and classification of traffic lights
 
 --------
 
+## MLflow tracking
+
+- Local runs are not committed: `mlruns/` is gitignored.
+- Set a remote tracking server via `.env`:
+
+```bash
+MLFLOW_TRACKING_URI=https://dagshub.com/<user>/<repo>.mlflow
+```
+
