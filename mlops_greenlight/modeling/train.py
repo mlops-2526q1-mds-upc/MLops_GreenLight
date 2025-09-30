@@ -14,13 +14,29 @@ import mlflow
 from datetime import datetime
 import pandas as pd
 from dotenv import load_dotenv
+import dagshub
 
 
 
-# Load .env and configure MLflow tracking URI from env
+# Load .env and configure DagsHub MLflow integration
 load_dotenv()
-#_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow-placeholder:5000")
-#mlflow.set_tracking_uri(_tracking_uri)
+if os.getenv("FORCE_CPU", "").lower() in {"1", "true", "yes"}:
+    # Must be set before any torch/detectron2 imports
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+# Initialize DagsHub MLflow integration
+repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
+repo_name = os.getenv("DAGSHUB_REPO_NAME")
+
+if not repo_owner or not repo_name:
+    print("ERROR: DagsHub configuration missing!")
+    print("Please create a .env file with the following variables:")
+    print("DAGSHUB_REPO_OWNER=your_username")
+    print("DAGSHUB_REPO_NAME=your_repo_name")
+    exit(1)
+
+dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+
 mlflow.set_experiment("GreenLight Fine-Tuning")
 
 # ======================
