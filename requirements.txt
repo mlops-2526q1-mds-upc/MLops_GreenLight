@@ -19,6 +19,7 @@ cookiecutter-data-science==2.3.0
 cryptography==46.0.1
 cycler==0.12.1
 -e git+https://github.com/facebookresearch/detectron2.git@a1ce2f956a1d2212ad672e3c47d53405c2fe4312#egg=detectron2
+dotenv
 fief-client==0.20.0
 filelock==3.19.1
 fonttools==4.60.1

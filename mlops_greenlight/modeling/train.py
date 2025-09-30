@@ -10,11 +10,13 @@ from detectron2.config import get_cfg
 from detectron2 import model_zoo
 from codecarbon import EmissionsTracker
 from features import get_classes_from_yaml,load_yaml_annotations
+import mlflow
+from datetime import datetime
+import pandas as pd
 
-tracker = EmissionsTracker()
 
-tracker.start()
 
+mlflow.set_experiment("IMDB sentiment analysis")
 # ======================
 # 3. Register dataset
 # ======================
@@ -47,7 +49,7 @@ class MyTrainer(DefaultTrainer):
 # ======================
 if __name__ == "__main__":
     # New dataset paths
-    train_root = os.path.join("data", "raw", "dataset_train_rgb")
+    train_root = os.path.join("data", "raw", "dataset_train_rgb")   
     test_root = os.path.join("data", "raw", "dataset_test_rgb")
 
     yaml_train = os.path.join(train_root, "train.yaml")
@@ -77,9 +79,20 @@ if __name__ == "__main__":
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
     print("[INFO] Starting training...")
+    mlflow.set_experiment(f"Green Light"+ datetime.now())
+    tracker = EmissionsTracker()
+    tracker.start()
     trainer = MyTrainer(cfg)
     trainer.resume_or_load(resume=False)
     trainer.train()
+    tracker.stop()
+    
+    #add a directory for emissions.csv
 
+    # Log the CO2 emissions to MLflow
+    emissions = pd.read_csv("emissions.csv")
+    emissions_metrics = emissions.iloc[-1, 4:13].to_dict()
+    emissions_params = emissions.iloc[-1, 13:].to_dict()
+    mlflow.log_params(emissions_params)
+    mlflow.log_metrics(emissions_metrics)
 
-tracker.stop()
