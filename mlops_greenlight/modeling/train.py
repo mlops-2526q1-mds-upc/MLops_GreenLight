@@ -8,7 +8,11 @@ from detectron2.data import DatasetCatalog, MetadataCatalog, build_detection_tra
 from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
+from codecarbon import EmissionsTracker
 
+tracker = EmissionsTracker()
+
+tracker.start()
 # ======================
 # 0. Label aliasing
 # ======================
@@ -149,3 +153,5 @@ if __name__ == "__main__":
     trainer.resume_or_load(resume=False)
     trainer.train()
 
+
+tracker.stop()
