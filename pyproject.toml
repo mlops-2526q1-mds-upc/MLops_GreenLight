@@ -16,6 +16,7 @@ classifiers = [
     
 ]
 dependencies = [
+    "codecarbon>=3.0.5",
     "ipython",
     "jupyterlab",
     "matplotlib",
