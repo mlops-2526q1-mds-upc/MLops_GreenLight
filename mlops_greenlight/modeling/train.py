@@ -2,6 +2,7 @@ import os
 import yaml
 import cv2
 import random
+import json
 
 import detectron2
 from detectron2.data import DatasetCatalog, MetadataCatalog, build_detection_train_loader
@@ -9,14 +10,85 @@ from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
 from codecarbon import EmissionsTracker
-from features import get_classes_from_yaml,load_yaml_annotations
 import mlflow
 from datetime import datetime
 import pandas as pd
+from dotenv import load_dotenv
 
 
 
-mlflow.set_experiment("IMDB sentiment analysis")
+# Load .env and configure MLflow tracking URI from env
+load_dotenv()
+#_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow-placeholder:5000")
+#mlflow.set_tracking_uri(_tracking_uri)
+mlflow.set_experiment("GreenLight Fine-Tuning")
+
+# ======================
+# TEMPORARY PLACEHOLDER
+# Inline copies of helpers from features.py while package imports are stabilized.
+# DO NOT KEEP: Move these back to mlops_greenlight/features.py and import.
+# ======================
+LABEL_ALIAS = {
+    "Red": "Red",
+    "RedLeft": "Red",
+    "RedRight": "Red",
+    "RedStraight": "Red",
+    "RedStraightLeft": "Red",
+    "Green": "Green",
+    "GreenLeft": "Green",
+    "GreenRight": "Green",
+    "GreenStraight": "Green",
+    "GreenStraightLeft": "Green",
+    "GreenStraightRight": "Green",
+    "Yellow": "Yellow",
+    "off": "off",
+}
+
+def get_classes_from_yaml(yaml_files):
+    labels = set()
+    for yfile in yaml_files:
+        if yfile and os.path.exists(yfile):
+            with open(yfile, "r") as f:
+                data = yaml.safe_load(f)
+            for item in data:
+                for box in item.get("boxes", []):
+                    aliased_label = LABEL_ALIAS.get(box["label"], box["label"])
+                    labels.add(aliased_label)
+    return sorted(labels)
+
+def load_yaml_annotations(yaml_file, dataset_root, class_name_to_id):
+    with open(yaml_file, "r") as f:
+        data = yaml.safe_load(f)
+
+    dataset_dicts = []
+    for idx, item in enumerate(data):
+        record = {}
+
+        img_path = item["path"]
+        if img_path.startswith("./"):
+            img_path = img_path[2:]
+
+        abs_path = os.path.join(dataset_root, img_path)
+        record["file_name"] = abs_path
+        record["image_id"] = idx
+
+        objs = []
+        for box in item.get("boxes", []):
+            aliased_label = LABEL_ALIAS.get(box["label"], "off")
+            if aliased_label not in class_name_to_id:
+                continue
+            obj = {
+                "bbox": [box["x_min"], box["y_min"], box["x_max"], box["y_max"]],
+                "bbox_mode": 0,
+                "category_id": class_name_to_id[aliased_label],
+                "iscrowd": 0,
+            }
+            objs.append(obj)
+
+        record["annotations"] = objs
+        dataset_dicts.append(record)
+
+    return dataset_dicts
 # ======================
 # 3. Register dataset
 # ======================
@@ -79,7 +151,7 @@ if __name__ == "__main__":
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
     print("[INFO] Starting training...")
-    mlflow.set_experiment(f"Green Light"+ datetime.now())
+    mlflow.start_run(run_name=f"train_frcnn_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     tracker = EmissionsTracker()
     tracker.start()
     trainer = MyTrainer(cfg)
@@ -95,4 +167,47 @@ if __name__ == "__main__":
     emissions_params = emissions.iloc[-1, 13:].to_dict()
     mlflow.log_params(emissions_params)
     mlflow.log_metrics(emissions_metrics)
+
+    # Persist and log class mappings
+    classes_path = os.path.join(cfg.OUTPUT_DIR, "classes.json")
+    id_to_class = {v: k for k, v in class_name_to_id.items()}
+    with open(classes_path, "w") as f:
+        json.dump({"class_to_id": class_name_to_id, "id_to_class": id_to_class}, f, indent=2)
+    mlflow.log_artifact(classes_path)
+
+    # Dump Detectron2 config and log to MLflow
+    cfg_path = os.path.join(cfg.OUTPUT_DIR, "config.yaml")
+    with open(cfg_path, "w") as f:
+        f.write(cfg.dump())
+    mlflow.log_artifact(cfg_path)
+
+    # Log trained weights if present
+    weights_path = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
+    if os.path.exists(weights_path):
+        mlflow.log_artifact(weights_path)
+
+    # Log training metrics from Detectron2's metrics.json (last record)
+    metrics_path = os.path.join(cfg.OUTPUT_DIR, "metrics.json")
+    if os.path.exists(metrics_path):
+        last_metrics = None
+        with open(metrics_path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                    # Keep updating; last non-empty record wins
+                    last_metrics = record
+                except json.JSONDecodeError:
+                    pass
+        if isinstance(last_metrics, dict):
+            numeric_metrics = {k: v for k, v in last_metrics.items() if isinstance(v, (int, float))}
+            if numeric_metrics:
+                mlflow.log_metrics(numeric_metrics)
+        # Also log the raw file for reference
+        mlflow.log_artifact(metrics_path)
+
+    # End MLflow run
+    mlflow.end_run()
 

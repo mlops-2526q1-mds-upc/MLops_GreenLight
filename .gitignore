@@ -193,3 +193,8 @@ cython_debug/
 .pypirc
 
 Dockerfile
+# MLflow local runs (use a remote tracking URI instead)
+mlruns/
+
+# codecarbon - already tracked with mlflow so no need to upload to repo
+emissions.csv
