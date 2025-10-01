@@ -1,0 +1,42 @@
+# (alternativa x86 por compatibilidad, más lenta) --platform=linux/amd64
+FROM python:3.10-slim
+WORKDIR /workspace
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Forzar HTTPS/reintentos (compat. con bookworm-slim)
+RUN set -eux; \
+  if [ -f /etc/apt/sources.list ]; then \
+    sed -i -e 's|http://deb.debian.org|https://deb.debian.org|g' \
+           -e 's|http://security.debian.org|https://security.debian.org|g' /etc/apt/sources.list; \
+  fi; \
+  if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+    sed -i -e 's|http://deb.debian.org|https://deb.debian.org|g' \
+           -e 's|http://security.debian.org|https://security.debian.org|g' /etc/apt/sources.list.d/debian.sources; \
+  fi; \
+  printf 'Acquire::Retries "5";\nAcquire::ForceIPv4 "true";\nAcquire::https::Timeout "30";\n' > /etc/apt/apt.conf.d/99net
+
+# Dependencias mínimas (sin GUI/X11)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3-dev git curl ca-certificates cmake g++ \
+    libglib2.0-0 libgl1 ffmpeg apt-utils \
+  && rm -rf /var/lib/apt/lists/*
+
+# PyTorch CPU (sin CUDA)
+RUN python -m pip install --upgrade pip && \
+    pip install --index-url https://download.pytorch.org/whl/cpu \
+      torch torchvision torchaudio
+
+# Detectron2 (CPU)
+RUN git clone https://github.com/facebookresearch/detectron2.git /workspace/detectron2 && \
+    cd /workspace/detectron2 && \
+    python -m pip install .
+
+# Librerías extra (headless)
+RUN pip install opencv-python-headless matplotlib tqdm jupyter notebook \
+               pyyaml omegaconf hydra-core codecarbon mlflow uvc dagshub
+
+EXPOSE 8888
+CMD ["bash"]
