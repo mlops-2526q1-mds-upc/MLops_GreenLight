@@ -154,6 +154,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+myenv2
 
 # Spyder project settings
 .spyderproject
@@ -198,3 +199,6 @@ mlruns/
 
 # codecarbon - already tracked with mlflow so no need to upload to repo
 emissions.csv
+
+#container_commands
+container_commands.sh
