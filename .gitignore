@@ -198,3 +198,6 @@ mlruns/
 
 # codecarbon - already tracked with mlflow so no need to upload to repo
 emissions.csv
+
+# linting
+.lint_reports/
