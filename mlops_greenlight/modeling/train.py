@@ -1,22 +1,21 @@
-import os
-import yaml
-import cv2
-import random
-import json
-
-import detectron2
-from detectron2.data import DatasetCatalog, MetadataCatalog, build_detection_train_loader
-from detectron2.engine import DefaultTrainer
-from detectron2.config import get_cfg
-from detectron2 import model_zoo
-from codecarbon import EmissionsTracker
-import mlflow
 from datetime import datetime
-import pandas as pd
-from dotenv import load_dotenv
+import json
+import os
+
+from codecarbon import EmissionsTracker
 import dagshub
-
-
+from detectron2 import model_zoo
+from detectron2.config import get_cfg
+from detectron2.data import (
+    DatasetCatalog,
+    MetadataCatalog,
+    build_detection_train_loader,
+)
+from detectron2.engine import DefaultTrainer
+from dotenv import load_dotenv
+import mlflow
+import pandas as pd
+import yaml
 
 # Load .env and configure DagsHub MLflow integration
 load_dotenv()
@@ -60,6 +59,7 @@ LABEL_ALIAS = {
     "off": "off",
 }
 
+
 def get_classes_from_yaml(yaml_files):
     labels = set()
     for yfile in yaml_files:
@@ -71,6 +71,7 @@ def get_classes_from_yaml(yaml_files):
                     aliased_label = LABEL_ALIAS.get(box["label"], box["label"])
                     labels.add(aliased_label)
     return sorted(labels)
+
 
 def load_yaml_annotations(yaml_file, dataset_root, class_name_to_id):
     with open(yaml_file, "r") as f:
@@ -105,22 +106,28 @@ def load_yaml_annotations(yaml_file, dataset_root, class_name_to_id):
         dataset_dicts.append(record)
 
     return dataset_dicts
+
+
 # ======================
 # 3. Register dataset
 # ======================
 def register_dataset(name_prefix, dataset_root, yaml_train, yaml_val, class_name_to_id):
     DatasetCatalog.register(
         f"{name_prefix}_train",
-        lambda: load_yaml_annotations(yaml_train, dataset_root, class_name_to_id)
+        lambda: load_yaml_annotations(yaml_train, dataset_root, class_name_to_id),
     )
-    MetadataCatalog.get(f"{name_prefix}_train").set(thing_classes=list(class_name_to_id.keys()))
+    MetadataCatalog.get(f"{name_prefix}_train").set(
+        thing_classes=list(class_name_to_id.keys())
+    )
 
     if yaml_val:
         DatasetCatalog.register(
             f"{name_prefix}_val",
-            lambda: load_yaml_annotations(yaml_val, dataset_root, class_name_to_id)
+            lambda: load_yaml_annotations(yaml_val, dataset_root, class_name_to_id),
         )
-        MetadataCatalog.get(f"{name_prefix}_val").set(thing_classes=list(class_name_to_id.keys()))
+        MetadataCatalog.get(f"{name_prefix}_val").set(
+            thing_classes=list(class_name_to_id.keys())
+        )
 
 
 # ======================
@@ -137,11 +144,15 @@ class MyTrainer(DefaultTrainer):
 # ======================
 if __name__ == "__main__":
     # New dataset paths
-    train_root = os.path.join("data", "raw", "dataset_train_rgb")   
+    train_root = os.path.join("data", "raw", "dataset_train_rgb")
     test_root = os.path.join("data", "raw", "dataset_test_rgb")
 
     yaml_train = os.path.join(train_root, "train.yaml")
-    yaml_val = os.path.join(test_root, "test.yaml") if os.path.exists(os.path.join(test_root, "test.yaml")) else None
+    yaml_val = (
+        os.path.join(test_root, "test.yaml")
+        if os.path.exists(os.path.join(test_root, "test.yaml"))
+        else None
+    )
 
     # Collect all aliased labels from both train + val
     all_classes = get_classes_from_yaml([yaml_train, yaml_val])
@@ -152,11 +163,15 @@ if __name__ == "__main__":
 
     # Config
     cfg = get_cfg()
-    cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
+    cfg.merge_from_file(
+        model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
+    )
     cfg.DATASETS.TRAIN = ("traffic_train",)
     cfg.DATASETS.TEST = ("traffic_val",) if yaml_val else ()
     cfg.DATALOADER.NUM_WORKERS = 2
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
+    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(
+        "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"
+    )
     cfg.SOLVER.IMS_PER_BATCH = 2
     cfg.SOLVER.BASE_LR = 0.00025
     cfg.SOLVER.MAX_ITER = 500  # increase later
@@ -174,8 +189,8 @@ if __name__ == "__main__":
     trainer.resume_or_load(resume=False)
     trainer.train()
     tracker.stop()
-    
-    #add a directory for emissions.csv
+
+    # add a directory for emissions.csv
 
     # Log the CO2 emissions to MLflow
     emissions = pd.read_csv("emissions.csv")
@@ -188,7 +203,9 @@ if __name__ == "__main__":
     classes_path = os.path.join(cfg.OUTPUT_DIR, "classes.json")
     id_to_class = {v: k for k, v in class_name_to_id.items()}
     with open(classes_path, "w") as f:
-        json.dump({"class_to_id": class_name_to_id, "id_to_class": id_to_class}, f, indent=2)
+        json.dump(
+            {"class_to_id": class_name_to_id, "id_to_class": id_to_class}, f, indent=2
+        )
     mlflow.log_artifact(classes_path)
 
     # Dump Detectron2 config and log to MLflow
@@ -218,7 +235,9 @@ if __name__ == "__main__":
                 except json.JSONDecodeError:
                     pass
         if isinstance(last_metrics, dict):
-            numeric_metrics = {k: v for k, v in last_metrics.items() if isinstance(v, (int, float))}
+            numeric_metrics = {
+                k: v for k, v in last_metrics.items() if isinstance(v, (int, float))
+            }
             if numeric_metrics:
                 mlflow.log_metrics(numeric_metrics)
         # Also log the raw file for reference
@@ -226,4 +245,3 @@ if __name__ == "__main__":
 
     # End MLflow run
     mlflow.end_run()
-
