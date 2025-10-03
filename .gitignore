@@ -154,6 +154,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+myenv2
 
 # Spyder project settings
 .spyderproject
@@ -201,3 +202,5 @@ emissions.csv
 
 # linting
 .lint_reports/
+#container_commands
+container_commands.sh

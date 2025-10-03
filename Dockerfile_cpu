@@ -1,0 +1,56 @@
+# Base image with Ubuntu + Python 3.10 (no CUDA)
+FROM python:3.10-slim
+
+# Working directory inside the container
+WORKDIR /workspace
+
+# Prevent Python from buffering stdout and stderr
+ENV PYTHONUNBUFFERED=1
+
+# ------------------------------
+# Install system dependencies
+# ------------------------------
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    curl \
+    cmake \
+    g++ \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# ------------------------------
+# Upgrade pip
+# ------------------------------
+RUN python3 -m pip install --upgrade pip
+
+# ------------------------------
+# Install PyTorch (CPU only, no CUDA)
+# ------------------------------
+RUN pip install torch==2.8.0 torchvision torchaudio
+
+# ------------------------------
+# Install Detectron2 (CPU mode, directly from GitHub)
+# ------------------------------
+RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
+
+# ------------------------------
+# Install additional ML libraries
+# ------------------------------
+RUN pip install opencv-python matplotlib tqdm jupyter notebook pyyaml omegaconf hydra-core codecarbon mlflow uvc dagshub
+
+# ------------------------------
+# Expose port for Jupyter Notebook
+# ------------------------------
+EXPOSE 8888
+
+# ------------------------------
+# Default command when container starts
+# ------------------------------
+CMD ["bash"]
