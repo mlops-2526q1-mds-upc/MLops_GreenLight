@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import cv2
 from detectron2 import model_zoo
@@ -6,6 +7,31 @@ from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
 from torchvision.ops import nms
 import yaml
+from dotenv import load_dotenv
+import dagshub
+import mlflow
+from codecarbon import EmissionsTracker
+import pandas as pd
+
+# ----------------------
+# DagsHub/MLflow setup
+# ----------------------
+load_dotenv()
+if os.getenv("FORCE_CPU", "").lower() in {"1", "true", "yes"}:
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
+repo_name = os.getenv("DAGSHUB_REPO_NAME")
+
+if not repo_owner or not repo_name:
+    print("ERROR: DagsHub configuration missing!")
+    print("Please create a .env file with the following variables:")
+    print("DAGSHUB_REPO_OWNER=your_username")
+    print("DAGSHUB_REPO_NAME=your_repo_name")
+    raise SystemExit(1)
+
+dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+mlflow.set_experiment("GreenLight Inference")
 
 # ----------------------
 # Paths for test data
@@ -66,6 +92,22 @@ predictor = DefaultPredictor(cfg)
 pred_dir = os.path.join("models", "predictions")
 os.makedirs(pred_dir, exist_ok=True)
 
+run_name = f"inference_frcnn_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+mlflow.start_run(run_name=run_name)
+
+# Log a few run parameters for reproducibility
+mlflow.log_params(
+    {
+        "weights_path": cfg.MODEL.WEIGHTS,
+        "score_thresh_test": cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST,
+        "num_classes": cfg.MODEL.ROI_HEADS.NUM_CLASSES,
+    }
+)
+
+tracker = EmissionsTracker()
+tracker.start()
+
+num_images_processed = 0
 for idx, (img_path, gt_boxes) in enumerate(test_images.items()):
     if not os.path.exists(img_path):
         print(f"[WARNING] Image not found locally: {img_path}")
@@ -110,4 +152,22 @@ for idx, (img_path, gt_boxes) in enumerate(test_images.items()):
     # Save RGB prediction image
     out_path = os.path.join(pred_dir, f"pred_{os.path.basename(img_path)}")
     cv2.imwrite(out_path, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
+    num_images_processed += 1
     print(f"[DEBUG] Saved predictions to {out_path}")
+
+tracker.stop()
+
+# Log emissions to MLflow if available
+if os.path.exists("emissions.csv"):
+    emissions = pd.read_csv("emissions.csv")
+    last = emissions.iloc[-1]
+    emissions_metrics = last.iloc[4:13].to_dict()
+    emissions_params = last.iloc[13:].to_dict()
+    mlflow.log_params(emissions_params)
+    mlflow.log_metrics(emissions_metrics)
+
+# Log prediction artifacts and simple metrics
+mlflow.log_metric("num_images_processed", num_images_processed)
+mlflow.log_artifacts(pred_dir)
+
+mlflow.end_run()
