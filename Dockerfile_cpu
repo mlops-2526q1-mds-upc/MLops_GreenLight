@@ -1,3 +1,6 @@
+# ----------------------------------------------------------
+# Dockerfile_cpu — CPU-only environment for MLOps GreenLight
+# ----------------------------------------------------------
 # Base image with Ubuntu + Python 3.10 (no CUDA)
 FROM python:3.10-slim
 
@@ -7,9 +10,12 @@ WORKDIR /workspace
 # Prevent Python from buffering stdout and stderr
 ENV PYTHONUNBUFFERED=1
 
-# ------------------------------
+# ✅ Force CPU-only mode globally
+ENV CUDA_VISIBLE_DEVICES=""
+
+# ----------------------------------------------------------
 # Install system dependencies
-# ------------------------------
+# ----------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
@@ -25,32 +31,45 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# ------------------------------
+# ----------------------------------------------------------
 # Upgrade pip
-# ------------------------------
+# ----------------------------------------------------------
 RUN python3 -m pip install --upgrade pip
 
-# ------------------------------
-# Install PyTorch (CPU only, no CUDA)
-# ------------------------------
-RUN pip install torch==2.8.0 torchvision torchaudio
+# ----------------------------------------------------------
+# ✅ Install PyTorch (CPU-only, no CUDA)
+# ----------------------------------------------------------
+RUN pip install torch==2.8.0+cpu torchvision==0.19.0+cpu torchaudio==2.8.0+cpu \
+    -f https://download.pytorch.org/whl/torch_stable.html
 
-# ------------------------------
-# Install Detectron2 (CPU mode, directly from GitHub)
-# ------------------------------
+# ----------------------------------------------------------
+# Install Detectron2 (CPU mode)
+# ----------------------------------------------------------
 RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
 
-# ------------------------------
-# Install additional ML libraries
-# ------------------------------
-RUN pip install opencv-python matplotlib tqdm jupyter notebook pyyaml omegaconf hydra-core codecarbon mlflow uvc dagshub
+# ----------------------------------------------------------
+# Install additional ML and utility libraries
+# ----------------------------------------------------------
+RUN pip install \
+    opencv-python \
+    matplotlib \
+    tqdm \
+    jupyter \
+    notebook \
+    pyyaml \
+    omegaconf \
+    hydra-core \
+    codecarbon \
+    mlflow \
+    uvc \
+    dagshub
 
-# ------------------------------
-# Expose port for Jupyter Notebook
-# ------------------------------
+# ----------------------------------------------------------
+# Expose Jupyter port (optional)
+# ----------------------------------------------------------
 EXPOSE 8888
 
-# ------------------------------
-# Default command when container starts
-# ------------------------------
+# ----------------------------------------------------------
+# Default command
+# ----------------------------------------------------------
 CMD ["bash"]
