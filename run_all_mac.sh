@@ -25,7 +25,6 @@ fi
 CONTAINER_COMMANDS=$(cat <<'EOF'
 set -e
 echo "[container] Running all commands..."
-python3 ./mlops_greenlight/dataset.py
 python3 ./mlops_greenlight/modeling/train.py
 python3 ./mlops_greenlight/modeling/test.py
 bash mlops_greenlight/predictions2mp4.sh ./models/predictions/ ./models/predictions/output.mp4

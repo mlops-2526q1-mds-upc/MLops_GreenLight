@@ -1,4 +1,10 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+if os.getenv("FORCE_CPU", "").lower() in {"1", "true", "yes"}:
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+import os
 import yaml
 import cv2
 import random
@@ -15,14 +21,6 @@ from datetime import datetime
 import pandas as pd
 from dotenv import load_dotenv
 import dagshub
-
-
-
-# Load .env and configure DagsHub MLflow integration
-load_dotenv()
-if os.getenv("FORCE_CPU", "").lower() in {"1", "true", "yes"}:
-    # Must be set before any torch/detectron2 imports
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # Initialize DagsHub MLflow integration
 repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
@@ -151,18 +149,25 @@ if __name__ == "__main__":
     register_dataset("traffic", train_root, yaml_train, yaml_val, class_name_to_id)
 
     # Config
+    # Config
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
     cfg.DATASETS.TRAIN = ("traffic_train",)
     cfg.DATASETS.TEST = ("traffic_val",) if yaml_val else ()
-    cfg.DATALOADER.NUM_WORKERS = 2
+
+    # >>> AÑADE ESTO <<<
+    cfg.MODEL.DEVICE = "cpu"        # <--- fuerza CPU (soluciona el "Torch not compiled with CUDA enabled")
+    cfg.DATALOADER.NUM_WORKERS = 0  # en Mac/containers suele ir mejor 0
+    cfg.SOLVER.IMS_PER_BATCH = 1    # baja un poco la carga en CPU
+    # <<< FIN >>>
+
     cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
-    cfg.SOLVER.IMS_PER_BATCH = 2
     cfg.SOLVER.BASE_LR = 0.00025
-    cfg.SOLVER.MAX_ITER = 500  # increase later
+    cfg.SOLVER.MAX_ITER = 500
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_name_to_id)
     cfg.OUTPUT_DIR = "./models"
+
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
