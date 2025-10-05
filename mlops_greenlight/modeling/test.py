@@ -41,12 +41,19 @@ state_colors = {
 
 # Class ID to label mapping (must match training)
 id_to_label = {0: "Red", 1: "Green", 2: "Yellow", 3: "off"}  # match training class order
+num_classes = len(id_to_label)
 
 # ----------------------
 # Config & predictor
 # ----------------------
+
 cfg = get_cfg()
 cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
+cfg.MODEL.DEVICE = "cpu"
+cfg.MODEL.ROI_HEADS.NUM_CLASSES = num_classes
+cfg.MODEL.WEIGHTS = os.path.join("models", "model_final.pth")
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.50
+predictor = DefaultPredictor(cfg)
 
 # Update with trained model path
 cfg.MODEL.WEIGHTS = os.path.join("models", "model_final.pth")  
