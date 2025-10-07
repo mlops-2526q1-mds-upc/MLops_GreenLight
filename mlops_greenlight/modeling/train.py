@@ -1,9 +1,14 @@
 from datetime import datetime
 import json
 import os
-
-from codecarbon import EmissionsTracker
+import sys
+import torch
+import yaml
 import dagshub
+import mlflow
+import pandas as pd
+from dotenv import load_dotenv
+from codecarbon import EmissionsTracker
 from detectron2 import model_zoo
 from detectron2.config import get_cfg
 from detectron2.data import (
@@ -12,36 +17,54 @@ from detectron2.data import (
     build_detection_train_loader,
 )
 from detectron2.engine import DefaultTrainer
-from dotenv import load_dotenv
-import mlflow
-import pandas as pd
-import yaml
 
-# Load .env and configure DagsHub MLflow integration
+# =====================================================
+# 0. Environment setup (CPU/GPU selection from .env)
+# =====================================================
 load_dotenv()
-if os.getenv("FORCE_CPU", "").lower() in {"1", "true", "yes"}:
-    # Must be set before any torch/detectron2 imports
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-# Initialize DagsHub MLflow integration
+device_mode = os.getenv("DEVICE_MODE")
+if device_mode is None:
+    print("ERROR: 'DEVICE_MODE' not found in .env file. Please add one of the following lines:")
+    print("DEVICE_MODE=cpu")
+    print("or")
+    print("DEVICE_MODE=gpu")
+    sys.exit(1)
+
+device_mode = device_mode.strip().lower()
+if device_mode not in {"cpu", "gpu"}:
+    print(f"ERROR: Invalid DEVICE_MODE='{device_mode}'. Must be 'cpu' or 'gpu'.")
+    sys.exit(1)
+
+# Force correct mode
+if device_mode == "cpu":
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    torch.cuda.is_available = lambda: False
+    device_str = "cpu"
+    print("[INFO] Forcing CPU mode for Detectron2 and PyTorch.")
+else:
+    device_str = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[INFO] Using device: {device_str.upper()}")
+
+# =====================================================
+# 1. DagsHub / MLflow setup
+# =====================================================
 repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
 repo_name = os.getenv("DAGSHUB_REPO_NAME")
 
 if not repo_owner or not repo_name:
     print("ERROR: DagsHub configuration missing!")
-    print("Please create a .env file with the following variables:")
+    print("Please create a .env file with:")
     print("DAGSHUB_REPO_OWNER=your_username")
     print("DAGSHUB_REPO_NAME=your_repo_name")
-    exit(1)
+    sys.exit(1)
 
 dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
-
 mlflow.set_experiment("GreenLight Fine-Tuning")
 
 # ======================
 # TEMPORARY PLACEHOLDER
 # Inline copies of helpers from features.py while package imports are stabilized.
-# DO NOT KEEP: Move these back to mlops_greenlight/features.py and import.
 # ======================
 LABEL_ALIAS = {
     "Red": "Red",
@@ -80,11 +103,7 @@ def load_yaml_annotations(yaml_file, dataset_root, class_name_to_id):
     dataset_dicts = []
     for idx, item in enumerate(data):
         record = {}
-
-        img_path = item["path"]
-        if img_path.startswith("./"):
-            img_path = img_path[2:]
-
+        img_path = item["path"].lstrip("./")
         abs_path = os.path.join(dataset_root, img_path)
         record["file_name"] = abs_path
         record["image_id"] = idx
@@ -101,10 +120,8 @@ def load_yaml_annotations(yaml_file, dataset_root, class_name_to_id):
                 "iscrowd": 0,
             }
             objs.append(obj)
-
         record["annotations"] = objs
         dataset_dicts.append(record)
-
     return dataset_dicts
 
 
@@ -119,7 +136,6 @@ def register_dataset(name_prefix, dataset_root, yaml_train, yaml_val, class_name
     MetadataCatalog.get(f"{name_prefix}_train").set(
         thing_classes=list(class_name_to_id.keys())
     )
-
     if yaml_val:
         DatasetCatalog.register(
             f"{name_prefix}_val",
@@ -178,19 +194,22 @@ if __name__ == "__main__":
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_name_to_id)
     cfg.OUTPUT_DIR = "./models"
+    cfg.MODEL.DEVICE = device_str  # ✅ Dynamic CPU/GPU setting
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
-    print("[INFO] Starting training...")
+    print(f"[INFO] Starting training on {device_str.upper()}...")
     mlflow.start_run(run_name=f"train_frcnn_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    mlflow.log_param("device_mode", device_str)
+
     tracker = EmissionsTracker()
     tracker.start()
+
     trainer = MyTrainer(cfg)
     trainer.resume_or_load(resume=False)
     trainer.train()
-    tracker.stop()
 
-    # add a directory for emissions.csv
+    tracker.stop()
 
     # Log the CO2 emissions to MLflow
     emissions = pd.read_csv("emissions.csv")
@@ -230,7 +249,6 @@ if __name__ == "__main__":
                     continue
                 try:
                     record = json.loads(line)
-                    # Keep updating; last non-empty record wins
                     last_metrics = record
                 except json.JSONDecodeError:
                     pass
@@ -240,8 +258,6 @@ if __name__ == "__main__":
             }
             if numeric_metrics:
                 mlflow.log_metrics(numeric_metrics)
-        # Also log the raw file for reference
         mlflow.log_artifact(metrics_path)
 
-    # End MLflow run
     mlflow.end_run()
