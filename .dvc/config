@@ -1,5 +1,7 @@
 [core]
     remote = origin
+['remote "localstore"']
+    url = ./dvc
 ['remote "origin"']
     url = https://dagshub.com/brunabarraquer/MLops_GreenLight.dvc
 
