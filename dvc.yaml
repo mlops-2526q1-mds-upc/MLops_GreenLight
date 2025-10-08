@@ -1,34 +1,24 @@
 stages:
   download:
-    cmd: python -m mlops_greenlight.dataset
+    cmd: python3 -m mlops_greenlight.dataset
     deps:
       - mlops_greenlight/dataset.py
     outs:
       - data/raw           
-      
-  preprocess:
-    cmd: python -m mlops_greenlight.modeling.preprocess
-    deps:
-      - mlops_greenlight/modeling/preprocess.py
-      - data/raw
-    outs:
-      - data/interim/mlops_data_cleaned.parquet
 
-  split:
-    cmd: python -m mlops_greenlight.modeling.split_data
+  convert:
+    cmd: python3 -m mlops_greenlight.convert
     deps:
-      - mlops_greenlight/modeling/split_data.py
-      - data/interim/mlops_data_cleaned.parquet
+      - data/raw
+      - mlops_greenlight/convert.py
     outs:
-      - data/processed/train.parquet
-      - data/processed/validation.parquet
-      - data/processed/test.parquet
+      - data/processed
 
   train:
-    cmd: python -m mlops_greenlight.modeling.train
+    cmd: python3 -m mlops_greenlight.modeling.train
     deps:
       - mlops_greenlight/modeling/train.py
-      - data/processed/train.parquet
-      - data/processed/validation.parquet
+      - data/processed/
+      - data/raw
     outs:
       - models/
