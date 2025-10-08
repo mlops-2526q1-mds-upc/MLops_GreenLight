@@ -1,0 +1,34 @@
+stages:
+  download:
+    cmd: python -m mlops_greenlight.dataset
+    deps:
+      - mlops_greenlight/dataset.py
+    outs:
+      - data/raw           
+      
+  preprocess:
+    cmd: python -m mlops_greenlight.modeling.preprocess
+    deps:
+      - mlops_greenlight/modeling/preprocess.py
+      - data/raw
+    outs:
+      - data/interim/mlops_data_cleaned.parquet
+
+  split:
+    cmd: python -m mlops_greenlight.modeling.split_data
+    deps:
+      - mlops_greenlight/modeling/split_data.py
+      - data/interim/mlops_data_cleaned.parquet
+    outs:
+      - data/processed/train.parquet
+      - data/processed/validation.parquet
+      - data/processed/test.parquet
+
+  train:
+    cmd: python -m mlops_greenlight.modeling.train
+    deps:
+      - mlops_greenlight/modeling/train.py
+      - data/processed/train.parquet
+      - data/processed/validation.parquet
+    outs:
+      - models/

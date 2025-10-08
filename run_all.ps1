@@ -26,7 +26,7 @@ if ([string]::IsNullOrEmpty($IMAGE_EXISTS)) {
 # ------------------------------
 $CONTAINER_COMMANDS = @"
 echo "Running all commands..."
-python3 ./mlops_greenlight/dataset.py
+python3 ./mlops_greenlight/dataset.pymkdir .dvcstore
 python3 ./mlops_greenlight/modeling/train.py
 python3 ./mlops_greenlight/modeling/test.py
 bash ./mlops_greenlight/predictions2mp4.sh ./models/predictions/ ./models/predictions/output.mp4
@@ -47,3 +47,4 @@ docker run --rm `
   -w $CONTAINER_WORKDIR `
   $IMAGE_NAME `
   bash $TMP_SCRIPT
+

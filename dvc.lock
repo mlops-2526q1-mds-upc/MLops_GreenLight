@@ -1,0 +1,15 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: python -m mlops_greenlight.dataset
+    deps:
+    - path: mlops_greenlight/dataset.py
+      hash: md5
+      md5: 3add906813b55d6752a43c5df7c5b2ba
+      size: 3052
+    outs:
+    - path: data/raw
+      hash: md5
+      md5: 3edac897e5cf7f5a4b935d34c4d23998.dir
+      size: 37523749000
+      nfiles: 13433
