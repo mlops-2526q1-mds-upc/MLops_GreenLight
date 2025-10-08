@@ -1,0 +1,24 @@
+stages:
+  download:
+    cmd: python3 -m mlops_greenlight.dataset
+    deps:
+      - mlops_greenlight/dataset.py
+    outs:
+      - data/raw           
+
+  convert:
+    cmd: python3 -m mlops_greenlight.convert
+    deps:
+      - data/raw
+      - mlops_greenlight/convert.py
+    outs:
+      - data/processed
+
+  train:
+    cmd: python3 -m mlops_greenlight.modeling.train
+    deps:
+      - mlops_greenlight/modeling/train.py
+      - data/processed/
+      - data/raw
+    outs:
+      - models/

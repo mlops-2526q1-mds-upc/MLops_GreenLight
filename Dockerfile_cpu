@@ -43,7 +43,7 @@ RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
 # ------------------------------
 # Install additional ML libraries
 # ------------------------------
-RUN pip install opencv-python matplotlib tqdm jupyter notebook pyyaml omegaconf hydra-core codecarbon mlflow uvc dagshub
+RUN pip install opencv-python matplotlib tqdm jupyter notebook pyyaml omegaconf hydra-core codecarbon mlflow uvc dagshub dvc
 
 # ------------------------------
 # Expose port for Jupyter Notebook

@@ -9,7 +9,8 @@ WORKDIR /workspace
 RUN pip install --no-cache-dir \
     black \
     ruff \
-    pylint
+    pylint \
+    dvc
 
 CMD ["bash"]
 
