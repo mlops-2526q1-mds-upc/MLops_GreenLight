@@ -31,13 +31,15 @@ echo "Running all commands..."
 
 # --- DVC auth & data pull (reads env from Docker --env-file) ---
 # Expected in .env: DAGSHUB_USER=..., DAGSHUB_TOKEN=..., DVC_REMOTE=origin|localstore
-: "${DVC_REMOTE:=origin}"   # default if not set
-mkdir -p .dvcstore || true   # harmless if not used
+: "${DVC_REMOTE:=origin}" 
+echo "DVC_REMOTE=$DVC_REMOTE"
+dvc remote list
+mkdir -p .dvcstore || true 
 
-# Configure DVC remote credentials into .dvc/config.local (never committed)
-dvc remote modify "\$DVC_REMOTE" auth basic       || true
-dvc remote modify "\$DVC_REMOTE" user "\$DAGSHUB_USER" --local    || true
-dvc remote modify "\$DVC_REMOTE" password "\$DAGSHUB_TOKEN" --local || true
+# Configure DVC remote credentials
+dvc remote modify "$DVC_REMOTE" auth basic                 || true
+dvc remote modify "$DVC_REMOTE" user "$DAGSHUB_USER" --local      || true
+dvc remote modify "$DVC_REMOTE" password "$DAGSHUB_TOKEN" --local || true
 
 # Pull data for this Git commit (ok if remote is localstore and no creds)
 dvc pull -r "$DVC_REMOTE" -q || true
@@ -65,14 +67,13 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false) # UTF-8 without BOM
 # ------------------------------
 # Run the commands in container (CPU only)
 # ------------------------------
-$envFileArg = ""
-if (Test-Path ".env") { $envFileArg = "--env-file .env" }
+
+$envArgs = @()
+if (Test-Path ".env") { $envArgs = @("--env-file", ".env") }
 
 docker run --rm `
-  $envFileArg `
+  $envArgs `
   -v "${HOST_WORKDIR}:${CONTAINER_WORKDIR}" `
   -w $CONTAINER_WORKDIR `
   $IMAGE_NAME `
   bash $TMP_SCRIPT
-
-
