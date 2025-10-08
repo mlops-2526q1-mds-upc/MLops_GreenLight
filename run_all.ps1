@@ -24,14 +24,14 @@ if ([string]::IsNullOrEmpty($IMAGE_EXISTS)) {
 # ------------------------------
 # Commands to run inside container
 # ------------------------------
-$CONTAINER_COMMANDS = @"
+$CONTAINER_COMMANDS = @'
 set -e
 
 echo "Running all commands..."
 
 # --- DVC auth & data pull (reads env from Docker --env-file) ---
 # Expected in .env: DAGSHUB_USER=..., DAGSHUB_TOKEN=..., DVC_REMOTE=origin|localstore
-: "\${DVC_REMOTE:=origin}"   # default if not set
+: "${DVC_REMOTE:=origin}"   # default if not set
 mkdir -p .dvcstore || true   # harmless if not used
 
 # Configure DVC remote credentials into .dvc/config.local (never committed)
@@ -40,20 +40,21 @@ dvc remote modify "\$DVC_REMOTE" user "\$DAGSHUB_USER" --local    || true
 dvc remote modify "\$DVC_REMOTE" password "\$DAGSHUB_TOKEN" --local || true
 
 # Pull data for this Git commit (ok if remote is localstore and no creds)
-dvc pull -r "\$DVC_REMOTE" -q || true
+dvc pull -r "$DVC_REMOTE" -q || true
 
-# --- (Optional) MLflow env; uncomment if you use MLflow locally ---
-# export MLFLOW_TRACKING_URI=file:/workspace/mlruns
-# export MLFLOW_EXPERIMENT_NAME=GreenLight
 
-# --- Your pipeline ---
+# --- pipeline ---
 python3 ./mlops_greenlight/dataset.py
 python3 ./mlops_greenlight/modeling/train.py
 python3 ./mlops_greenlight/modeling/test.py
 bash   ./mlops_greenlight/predictions2mp4.sh ./models/predictions/ ./models/predictions/output.mp4
 
+# -- dvc --
+dvc commit download preprocess split train   # record outputs into dvc.lock
+dvc push -r "$DVC_REMOTE" -j 2
+
 echo "Finished!"
-"@
+'@
 
 # --- write script with LF line endings (no CR) ---
 if (Test-Path $TMP_SCRIPT) { Remove-Item $TMP_SCRIPT -Force }
