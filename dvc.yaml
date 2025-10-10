@@ -22,3 +22,14 @@ stages:
       - data/raw
     outs:
       - models/
+  test:
+    cmd: python3 -m mlops_greenlight.modeling.test
+    deps:
+      - mlops_greenlight/modeling/test.py
+      - models/
+  encoding:
+    cmd: bash mlops_greenlight/predictions2mp4.sh ./models/predictions/ ./models/predictions/output.mp4
+    deps:
+      - mlops_greenlight/predictions2mp4.sh
+      - models/predictions/
+    

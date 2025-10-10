@@ -31,3 +31,26 @@ stages:
       md5: a3b3c1fa64a3962dbec416794d3aff17.dir
       size: 3268306825
       nfiles: 40293
+  train:
+    cmd: python3 -m mlops_greenlight.modeling.train
+    deps:
+    - path: data/processed/
+      hash: md5
+      md5: a3b3c1fa64a3962dbec416794d3aff17.dir
+      size: 3268306825
+      nfiles: 40293
+    - path: data/raw
+      hash: md5
+      md5: 3edac897e5cf7f5a4b935d34c4d23998.dir
+      size: 37523749000
+      nfiles: 13433
+    - path: mlops_greenlight/modeling/train.py
+      hash: md5
+      md5: b34d6925053314a85ef69c80aacfc78d
+      size: 8613
+    outs:
+    - path: models/
+      hash: md5
+      md5: f9470d649c869c2f668268b7c4590cb4.dir
+      size: 330192526
+      nfiles: 6

@@ -83,15 +83,15 @@ print(f"[DEBUG] Loaded {len(test_images)} entries from {test_yaml}")
 # 3. Color mapping and label setup
 # =====================================================
 state_colors = {
-    "Red": (0, 0, 255),
-    "Yellow": (0, 255, 255),
+    "Red": (255, 0, 0),
+    "Yellow": (255, 0, 255),
     "Green": (0, 255, 0),
     "off": (128, 128, 128),
 }
 
 id_to_label = {
-    0: "Red",
-    1: "Green",
+    0: "Green",
+    1: "Red",
     2: "Yellow",
     3: "off",
 }  # must match training
