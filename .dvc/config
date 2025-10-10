@@ -5,3 +5,5 @@
 ['remote "origin"']
     url = https://dagshub.com/brunabarraquer/MLops_GreenLight.dvc
     auth = basic
+    user = brunabarraquer
+    password = 9da09e7fd4559974c1154eaf28759017616a8847
