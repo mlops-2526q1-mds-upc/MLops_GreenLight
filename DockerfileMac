@@ -34,6 +34,9 @@ RUN git clone https://github.com/facebookresearch/detectron2.git /workspace/dete
     cd /workspace/detectron2 && \
     python -m pip install .
 
+
+RUN pip install pytest
+
 # Librerías extra (headless)
 RUN pip install opencv-python-headless matplotlib tqdm jupyter notebook \
                pyyaml omegaconf hydra-core codecarbon mlflow uvc dagshub

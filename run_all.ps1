@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 # Configuration
 # ------------------------------
 $IMAGE_NAME = "my-python-env"
-$DOCKERFILE_PATH = "./Dockerfile_cpu"
+$DOCKERFILE_PATH = "./DockerfileMac"
 $HOST_WORKDIR = (Get-Location).Path
 $CONTAINER_WORKDIR = "/workspace"
 $TMP_SCRIPT = "container_commands.sh"
