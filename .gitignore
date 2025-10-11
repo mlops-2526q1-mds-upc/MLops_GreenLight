@@ -198,3 +198,7 @@ mlruns/
 
 # codecarbon - already tracked with mlflow so no need to upload to repo
 emissions.csv
+
+
+
+container_commands.sh
