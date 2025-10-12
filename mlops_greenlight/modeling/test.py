@@ -1,124 +1,157 @@
-# test.py
-# CPU-only inference script aligned with train.py config.
-# Loads class mapping from models/classes.json and runs on a small subset.
-
 import os
-import json
-import yaml
+import sys
+from datetime import datetime
+import torch
 import cv2
-import random
-from pathlib import Path
-
-from detectron2.config import get_cfg
 from detectron2 import model_zoo
+from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
 from torchvision.ops import nms
+import yaml
+from dotenv import load_dotenv
+import dagshub
+import mlflow
+from codecarbon import EmissionsTracker
+import pandas as pd
 
-# ----------------------
-# Paths
-# ----------------------
-TEST_ROOT = os.path.join("data", "raw", "dataset_test_rgb")
-TEST_YAML = os.path.join(TEST_ROOT, "test.yaml")
-TEST_IMAGES_DIR = os.path.join(TEST_ROOT, "rgb", "test")
+# =====================================================
+# 0. Environment setup (CPU/GPU selection from .env)
+# =====================================================
+load_dotenv()
 
-OUTPUT_DIR = "./models"
-PRED_DIR = os.path.join(OUTPUT_DIR, "predictions")
-CLASSES_JSON = os.path.join(OUTPUT_DIR, "classes.json")
-WEIGHTS_PATH = os.path.join(OUTPUT_DIR, "model_final.pth")
+device_mode = os.getenv("DEVICE_MODE")
+if device_mode is None:
+    print("ERROR: 'DEVICE_MODE' not found in .env file. Please add one of the following lines:")
+    print("DEVICE_MODE=cpu")
+    print("or")
+    print("DEVICE_MODE=gpu")
+    sys.exit(1)
 
-# ----------------------
-# Colors by state (visualization only)
-# ----------------------
-STATE_COLORS = {
-    "Red": (0, 0, 255),
-    "Yellow": (0, 255, 255),
+device_mode = device_mode.strip().lower()
+if device_mode not in {"cpu", "gpu"}:
+    print(f"ERROR: Invalid DEVICE_MODE='{device_mode}'. Must be 'cpu' or 'gpu'.")
+    sys.exit(1)
+
+# Force correct mode
+if device_mode == "cpu":
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    torch.cuda.is_available = lambda: False
+    device_str = "cpu"
+    print("[INFO] Forcing CPU mode for Detectron2 and PyTorch.")
+else:
+    device_str = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[INFO] Using device: {device_str.upper()}")
+
+# =====================================================
+# 1. DagsHub / MLflow setup
+# =====================================================
+repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
+repo_name = os.getenv("DAGSHUB_REPO_NAME")
+
+if not repo_owner or not repo_name:
+    print("ERROR: DagsHub configuration missing!")
+    print("Please create a .env file with the following variables:")
+    print("DAGSHUB_REPO_OWNER=your_username")
+    print("DAGSHUB_REPO_NAME=your_repo_name")
+    sys.exit(1)
+
+dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+mlflow.set_experiment("GreenLight Inference")
+
+# =====================================================
+# 2. Dataset loading
+# =====================================================
+test_root = os.path.join("data", "raw", "dataset_test_rgb")
+test_yaml = os.path.join(test_root, "test.yaml")
+test_images_dir = os.path.join(test_root, "rgb", "test")
+
+if not os.path.exists(test_yaml):
+    print(f"ERROR: test.yaml not found at {test_yaml}")
+    sys.exit(1)
+
+with open(test_yaml, "r") as f:
+    test_entries = yaml.safe_load(f)
+
+test_images = {
+    os.path.join(test_images_dir, os.path.basename(e["path"])): e["boxes"]
+    for e in test_entries
+}
+
+print(f"[DEBUG] Loaded {len(test_images)} entries from {test_yaml}")
+
+# =====================================================
+# 3. Color mapping and label setup
+# =====================================================
+state_colors = {
+    "Red": (255, 0, 0),
+    "Yellow": (255, 0, 255),
     "Green": (0, 255, 0),
     "off": (128, 128, 128),
 }
 
-# ----------------------
-# Load test.yaml
-# ----------------------
-if not os.path.exists(TEST_YAML):
-    raise FileNotFoundError(f"Missing test.yaml at {TEST_YAML}")
+id_to_label = {
+    0: "Green",
+    1: "Red",
+    2: "Yellow",
+    3: "off",
+}  # must match training
 
-with open(TEST_YAML, "r") as f:
-    test_entries = yaml.safe_load(f)
-
-# Map YAML paths to local image files
-test_images = {}
-for entry in test_entries:
-    fname = os.path.basename(entry["path"])
-    local_path = os.path.join(TEST_IMAGES_DIR, fname)
-    test_images[local_path] = entry.get("boxes", [])
-
-print(f"[DEBUG] Loaded {len(test_images)} entries from {TEST_YAML}")
-
-# ----------------------
-# Load class mapping from training
-# ----------------------
-if not os.path.exists(CLASSES_JSON):
-    raise FileNotFoundError(
-        f"Missing {CLASSES_JSON}. Run training first so it writes classes.json."
-    )
-
-with open(CLASSES_JSON, "r") as f:
-    cls_data = json.load(f)
-
-# id_to_label as produced by train.py
-id_to_label = {int(k): v for k, v in cls_data["id_to_class"].items()}
-num_classes = len(id_to_label)
-print(f"[DEBUG] num_classes={num_classes}, id_to_label={id_to_label}")
-
-# ----------------------
-# Subset for quick pipeline checks
-# ----------------------
-MAX_TEST = int(os.getenv("MAX_TEST", "100"))
-random.seed(int(os.getenv("TEST_SAMPLE_SEED", "42")))
-items = list(test_images.items())
-if len(items) > MAX_TEST:
-    items = random.sample(items, MAX_TEST)
-print(f"[DEBUG] Testing on {len(items)} images (sampled from {len(test_images)})")
-
-# ----------------------
-# Build config & predictor (CPU)
-# ----------------------
-if not os.path.exists(WEIGHTS_PATH):
-    raise FileNotFoundError(
-        f"Missing weights at {WEIGHTS_PATH}. Train first to produce model_final.pth."
-    )
-
+# =====================================================
+# 4. Config & predictor
+# =====================================================
 cfg = get_cfg()
-cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
-cfg.MODEL.DEVICE = "cpu"
-cfg.MODEL.ROI_HEADS.NUM_CLASSES = num_classes
-cfg.MODEL.WEIGHTS = WEIGHTS_PATH
-cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = float(os.getenv("SCORE_THRESH_TEST", "0.50"))
+cfg.merge_from_file(
+    model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
+)
+cfg.MODEL.WEIGHTS = os.path.join("models", "model_final.pth")
 
+# Check model file
+if not os.path.exists(cfg.MODEL.WEIGHTS):
+    print(f"ERROR: Trained model not found at {cfg.MODEL.WEIGHTS}")
+    sys.exit(1)
+
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.50
+cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(id_to_label)
+cfg.MODEL.DEVICE = device_str  # Dynamic CPU/GPU setting
+
+print(f"[INFO] Running inference on {cfg.MODEL.DEVICE.upper()}...")
 predictor = DefaultPredictor(cfg)
 
-# ----------------------
-# Inference & save predictions
-# ----------------------
-Path(PRED_DIR).mkdir(parents=True, exist_ok=True)
+# =====================================================
+# 5. Run inference & save predictions
+# =====================================================
+pred_dir = os.path.join("models", "predictions")
+os.makedirs(pred_dir, exist_ok=True)
 
-processed = 0
-for idx, (img_path, gt_boxes) in enumerate(items, 1):
+run_name = f"inference_frcnn_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+mlflow.start_run(run_name=run_name)
+mlflow.log_param("device_mode", device_str)
+
+mlflow.log_params(
+    {
+        "weights_path": cfg.MODEL.WEIGHTS,
+        "score_thresh_test": cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST,
+        "num_classes": cfg.MODEL.ROI_HEADS.NUM_CLASSES,
+    }
+)
+
+tracker = EmissionsTracker()
+tracker.start()
+
+num_images_processed = 0
+for img_path, _ in test_images.items():
     if not os.path.exists(img_path):
-        print(f"[WARN] Image not found: {img_path}")
+        print(f"[WARNING] Image not found locally: {img_path}")
         continue
 
-    print(f"[DEBUG] ({idx}/{len(items)}) Processing {img_path}")
-    img_bgr = cv2.imread(img_path)
-    if img_bgr is None:
-        print(f"[WARN] Failed to read image: {img_path}")
-        continue
-    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    print(f"[DEBUG] Processing {img_path}")
+    img = cv2.imread(img_path)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     outputs = predictor(img_rgb)
     instances = outputs["instances"].to("cpu")
 
-    # Optional NMS to remove overlaps
+    # Apply NMS (optional)
     if len(instances) > 0:
         boxes = instances.pred_boxes.tensor
         scores = instances.scores
@@ -131,17 +164,41 @@ for idx, (img_path, gt_boxes) in enumerate(items, 1):
         cls_id = int(instances.pred_classes[i])
         score = float(instances.scores[i])
         label = id_to_label.get(cls_id, "off")
-        color = STATE_COLORS.get(label, (255, 255, 255))
+        color = state_colors.get(label, (255, 255, 255))
 
         x1, y1, x2, y2 = map(int, box)
         cv2.rectangle(img_rgb, (x1, y1), (x2, y2), color, 2)
         cv2.putText(
-            img_rgb, f"{label} {score:.2f}", (x1, max(0, y1 - 5)),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
+            img_rgb,
+            f"{label} {score:.2f}",
+            (x1, y1 - 5),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            color,
+            2,
         )
 
-    out_path = os.path.join(PRED_DIR, f"pred_{os.path.basename(img_path)}")
-    cv2.imwrite(out_path, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
-    processed += 1
+        print(f"[DEBUG] Predicted: {label} at [{x1},{y1},{x2},{y2}] score={score:.2f}")
 
-print(f"[INFO] Saved {processed} prediction images to {PRED_DIR}")
+    # Save prediction
+    out_path = os.path.join(pred_dir, f"pred_{os.path.basename(img_path)}")
+    cv2.imwrite(out_path, cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
+    num_images_processed += 1
+    print(f"[DEBUG] Saved predictions to {out_path}")
+
+tracker.stop()
+
+# =====================================================
+# 6. Log results to MLflow
+# =====================================================
+if os.path.exists("emissions.csv"):
+    emissions = pd.read_csv("emissions.csv")
+    last = emissions.iloc[-1]
+    emissions_metrics = last.iloc[4:13].to_dict()
+    emissions_params = last.iloc[13:].to_dict()
+    mlflow.log_params(emissions_params)
+    mlflow.log_metrics(emissions_metrics)
+
+mlflow.log_metric("num_images_processed", num_images_processed)
+mlflow.log_artifacts(pred_dir)
+mlflow.end_run()

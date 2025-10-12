@@ -1,0 +1,17 @@
+# Development image layering dev tools on top of the runtime image built from Dockerfile
+# Build the base runtime image first (see run_all.sh) which tags it as "my-python-env"
+
+FROM my-python-env
+
+WORKDIR /workspace
+
+# Install developer tooling for linting/formatting
+RUN pip install --no-cache-dir \
+    black \
+    ruff \
+    pylint \
+    dvc
+
+CMD ["bash"]
+
+

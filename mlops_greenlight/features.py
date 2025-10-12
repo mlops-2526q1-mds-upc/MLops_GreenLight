@@ -1,7 +1,10 @@
+"""Helpers to build dataset dicts from YAML annotations for Detectron2."""
+
 import os
+
 import yaml
-import cv2
-import random
+
+# cv2 is not used directly in this module; remove unused import
 
 # ======================
 # 0. Label aliasing
@@ -19,17 +22,19 @@ LABEL_ALIAS = {
     "GreenStraightLeft": "Green",
     "GreenStraightRight": "Green",
     "Yellow": "Yellow",
-    "off": "off"
+    "off": "off",
 }
+
 
 # ======================
 # 1. Collect classes dynamically from YAML
 # ======================
 def get_classes_from_yaml(yaml_files):
+    """Return sorted, aliased class names found across provided YAML files."""
     labels = set()
     for yfile in yaml_files:
         if yfile and os.path.exists(yfile):
-            with open(yfile, "r") as f:
+            with open(yfile, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
             for item in data:
                 for box in item.get("boxes", []):
@@ -42,7 +47,8 @@ def get_classes_from_yaml(yaml_files):
 # 2. YAML Loader
 # ======================
 def load_yaml_annotations(yaml_file, dataset_root, class_name_to_id):
-    with open(yaml_file, "r") as f:
+    """Load annotations from a YAML file and return Detectron2-style records."""
+    with open(yaml_file, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     dataset_dicts = []
