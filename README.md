@@ -93,7 +93,7 @@ Enjoy!
 MLFLOW_TRACKING_URI=https://dagshub.com/<user>/<repo>.mlflow
 ```
 
-### References
+## References
 
 **Behrendt, K. & Novak, L. (2017).**  
 *A Deep Learning Approach to Traffic Lights: Detection, Tracking, and Classification.*  
