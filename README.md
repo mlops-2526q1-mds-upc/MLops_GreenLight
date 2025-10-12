@@ -90,7 +90,7 @@ Enjoy!
 - Set a remote tracking server via `.env`:
 
 ```bash
-MLFLOW_TRACKING_URI=https://dagshub.com/<user>/<repo>.mlflow
+MLFLOW_TRACKING_URI=https://dagshub.com/brunabarraquer/MLops_GreenLight
 ```
 
 ## References
