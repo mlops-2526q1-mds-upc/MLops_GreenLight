@@ -59,6 +59,31 @@ Detection and classification of traffic lights
 
 --------
 
+## How to run the pipeline
+
+First, build your Docker image of choice:
+
+- Dockerfile: Environment for CUDA/Nvidia devices
+- DockerfileMac: Environment for Apple Silicon devices
+- Dockerfile_cpu: General environment for all devices using CPU
+
+Enter the environment with Bash:
+
+```bash
+docker run --gpus all -it --rm -v $(pwd):/workspace <image_name>
+```
+
+> [!NOTE]
+> Use ```--gpus all``` if you are using an environment that supports execution of code in GPU
+
+Run the pipeline by reproducing it using DVC:
+
+``` bash
+dvc repro
+```
+
+Enjoy!
+
 ## MLflow tracking
 
 - Local runs are not committed: `mlruns/` is gitignored.
