@@ -93,3 +93,8 @@ Enjoy!
 MLFLOW_TRACKING_URI=https://dagshub.com/<user>/<repo>.mlflow
 ```
 
+## Citations
+
+<pre> ```bibtex @inproceedings{BehrendtNovak2017ICRA, title = {A Deep Learning Approach to Traffic Lights: Detection, Tracking, and Classification}, author = {Behrendt, Karsten and Novak, Libor}, booktitle = {Robotics and Automation (ICRA), 2017 IEEE International Conference on}, organization = {IEEE} } ``` </pre>
+
+<pre> ```bibtex @misc{wu2019detectron2, author = {Yuxin Wu and Alexander Kirillov and Francisco Massa and Wan-Yen Lo and Ross Girshick}, title = {Detectron2}, howpublished = {\url{https://github.com/facebookresearch/detectron2}}, year = {2019} } ``` </pre>
