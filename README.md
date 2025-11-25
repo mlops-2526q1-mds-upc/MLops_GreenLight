@@ -102,3 +102,13 @@ In *Proceedings of the IEEE International Conference on Robotics and Automation 
 **Wu, Y., Kirillov, A., Massa, F., Lo, W.-Y., & Girshick, R. (2019).**  
 *Detectron2.*  
 Available at: [https://github.com/facebookresearch/detectron2](https://github.com/facebookresearch/detectron2)
+
+
+## Cloud and API 
+
+In order to open the Cloud VM, we need a .pem file. 
+
+Open VM: ssh -i MLOPS.pem ubuntu@16.170.233.92
+
+Open Git Clone: cd MLops_GreenLight
+
