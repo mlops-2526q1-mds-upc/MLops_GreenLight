@@ -108,7 +108,7 @@ Available at: [https://github.com/facebookresearch/detectron2](https://github.co
 
 In order to open the Cloud VM, we need a .pem file. 
 
-Open VM: ssh -i MLOPS.pem ubuntu@16.170.233.92
+Open VM: ssh -i MLOPS.pem ubuntu@<public ip>
 
 Open Git Clone: cd MLops_GreenLight
 

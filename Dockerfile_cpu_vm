@@ -40,11 +40,13 @@ RUN python -m pip install \
     'torchaudio==2.1.0' \
     --index-url https://download.pytorch.org/whl/cpu
 
-# ------------------------------
-# Install Detectron2 using the same env (no build isolation)
-# ------------------------------
-RUN python -m pip install --no-build-isolation \
-    'git+https://github.com/facebookresearch/detectron2.git@v0.6'
+    
+
+# Detectron2 CPU from prebuilt wheel (no git+)
+RUN python -m pip install \
+    detectron2==0.6 \
+    -f https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch2.1/index.html
+
 
 # ------------------------------
 # Install additional ML libraries
