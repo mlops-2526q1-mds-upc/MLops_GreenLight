@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 """
 call_pph_api.py — client for sending an image to endpoint on EC2.
-
---------
-# If your API expects the model in the PATH (e.g. /pph/predict)
-python call_pph_api.py --base http://<EC2_PUBLIC_IP>:8000 --endpoint "/{model}/predict" --image /path/to/img.jpg --model pph
-
-# If your API expects the model as a QUERY PARAM (e.g. /predict?model=pph)
-python call_pph_api.py --base http://<EC2_PUBLIC_IP>:8000 --endpoint "/predict" --image /path/to/img.jpg --model pph
-
-# Testing on the same EC2 where the server runs:
-python call_pph_api.py --base http://127.0.0.1:8000 --endpoint "/predict" --image img.jpg --model pph
 """
 import argparse
 import json

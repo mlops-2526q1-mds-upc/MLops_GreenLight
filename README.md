@@ -112,3 +112,5 @@ Open VM: ssh -i MLOPS.pem ubuntu@<public ip>
 
 Open Git Clone: cd MLops_GreenLight
 
+API: 
+python call_pph_api.py --base http://<EC2_PUBLIC_IP>:8000 --endpoint "/{model}/predict" --image /path/to/img.jpg --model pph
