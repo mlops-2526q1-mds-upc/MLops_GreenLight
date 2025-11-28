@@ -30,33 +30,54 @@ RUN apt-get update && apt-get install -y \
 # ------------------------------
 RUN python3 -m pip install --upgrade pip
 
+# ------------------------------
+# Install PyTorch (CPU only, no CUDA)
+# ------------------------------
+RUN pip install torch==2.8.0 torchvision torchaudio
 
 # ------------------------------
-# Install CPU PyTorch first
+# Install Detectron2 (CPU mode, directly from GitHub)
 # ------------------------------
-RUN python -m pip install \
-    'torch==2.1.0' \
-    'torchvision==0.16.0' \
-    'torchaudio==2.1.0' \
-    --index-url https://download.pytorch.org/whl/cpu
-
-
-
 # Detectron2 CPU from prebuilt wheel (no git+)
-RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
+RUN python -m pip install \
+    detectron2==0.6 \
+    -f https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch2.1/index.html
+
 
 
 # ------------------------------
 # Install additional ML libraries
 # ------------------------------
-RUN pip install opencv-python matplotlib tqdm jupyter notebook pyyaml omegaconf hydra-core codecarbon mlflow uvc dagshub dvc
+RUN pip install --no-cache-dir \
+    opencv-python \
+    matplotlib \
+    tqdm \
+    jupyter \
+    notebook \
+    pyyaml \
+    omegaconf \
+    hydra-core \
+    codecarbon \
+    mlflow \
+    uvc \
+    dagshub \
+    dvc \
+    fastapi \
+    "uvicorn[standard]" \
+    pillow \
+    python-multipart
+
 
 # ------------------------------
-# Expose port for Jupyter Notebook
+# Expose ports
+# - 8888: Jupyter (if you still use it)
+# - 8000: FastAPI inference API
 # ------------------------------
 EXPOSE 8888
+EXPOSE 8000
 
 # ------------------------------
 # Default command when container starts
 # ------------------------------
-CMD ["bash"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+
