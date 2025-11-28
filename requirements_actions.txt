@@ -102,3 +102,4 @@ wheel==0.45.1
 yacs==0.1.8
 yaspin==3.2.0
 pylint
+pytest
