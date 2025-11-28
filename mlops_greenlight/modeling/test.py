@@ -21,7 +21,9 @@ load_dotenv()
 
 device_mode = os.getenv("DEVICE_MODE")
 if device_mode is None:
-    print("ERROR: 'DEVICE_MODE' not found in .env file. Please add one of the following lines:")
+    print(
+        "ERROR: 'DEVICE_MODE' not found in .env file. Please add one of the following lines:"
+    )
     print("DEVICE_MODE=cpu")
     print("or")
     print("DEVICE_MODE=gpu")
