@@ -7,8 +7,9 @@ IMAGE_NAME="redlight-api:cpu"
 CONTAINER_NAME="redlight-api"
 PORT=8000
 
+
 # 0) Sanity: fastapi.py must exist in project root (or adjust CMD in Dockerfile)
-if [[ ! -f ".\tests\fastapi.py" ]]; then
+if [[ ! -f "/home/ubuntu/MLops_GreenLight/tests/fastapi.py" ]]; then
   echo "❌ fastapi.py not found in $(pwd). Either create fastapi.py (with 'app = FastAPI(...)')"
   echo "   or change Dockerfile CMD to match your filename (e.g., uvicorn my_api:app)."
   exit 1
