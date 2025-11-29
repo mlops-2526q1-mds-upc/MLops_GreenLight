@@ -33,21 +33,20 @@ RUN python3 -m pip install --upgrade pip
 # ------------------------------
 # Install PyTorch (CPU only, no CUDA)
 # ------------------------------
+# 2) Install CPU PyTorch that Detectron2 has wheels for (torch 1.13.1)
 RUN python -m pip install --no-cache-dir \
-    torch==2.1.0 \
-    torchvision==0.16.0 \
-    torchaudio==2.1.0 \
-    --index-url https://download.pytorch.org/whl/cpu
+    torch==1.13.1+cpu \
+    torchvision==0.14.1+cpu \
+    -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
 
-# ------------------------------
-# Install Detectron2 (CPU mode, directly from GitHub)
-# ------------------------------
-# Detectron2 CPU from prebuilt wheel (no git+)
+
+
+
+# 3) Install Detectron2 from prebuilt CPU wheels for torch1.13
 RUN python -m pip install --no-cache-dir \
     detectron2 \
-    -f https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch2.1/index.html
-
+    -f https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch1.13/index.html
 
 # ------------------------------
 # Install additional ML libraries
