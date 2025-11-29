@@ -1,57 +1,61 @@
+
 #!/usr/bin/env bash
 set -euo pipefail
 
+DOCKERFILE="Dockerfile_cpu_vm"
 IMAGE_NAME="redlight-api:cpu"
 CONTAINER_NAME="redlight-api"
-PORT="${PORT:-8000}"
-API_FILE="${API_FILE:-api_detectron2.py}"
+PORT=8000
 
-if [[ ! -f "$API_FILE" ]]; then
-  echo "API file '$API_FILE' not found in $(pwd). Set API_FILE=<file.py> or save your API as that name."
+# 0) Sanity: fastapi.py must exist in project root (or adjust CMD in Dockerfile)
+if [[ ! -f ".\tests\fastapi.py" ]]; then
+  echo "❌ fastapi.py not found in $(pwd). Either create fastapi.py (with 'app = FastAPI(...)')"
+  echo "   or change Dockerfile CMD to match your filename (e.g., uvicorn my_api:app)."
   exit 1
 fi
 
-if [[ ! -d "models" ]]; then
-  echo "'models/' not found. Create it with: models/config.yaml, models/model_final.pth, models/classes.json"
-  exit 1
-fi
-for f in config.yaml model_final.pth classes.json; do
-  [[ -f "models/$f" ]] || { echo "Missing models/$f"; exit 1; }
-done
-
+# 1) Docker
 if ! command -v docker &>/dev/null; then
-  echo "Installing Docker (Ubuntu)..."
+  echo "🔧 Installing Docker (Ubuntu)..."
   curl -fsSL https://get.docker.com | sh
   sudo usermod -aG docker "$USER" || true
 fi
+DOCKER="docker"; $DOCKER ps >/dev/null 2>&1 || DOCKER="sudo docker"
 
-echo "Building image $IMAGE_NAME ..."
-docker build -t "$IMAGE_NAME" -f Dockerfile.api .
+# 2) Build
+echo "🔨 Building image '$IMAGE_NAME' from '$DOCKERFILE' ..."
+$DOCKER build -t "$IMAGE_NAME" -f "$DOCKERFILE" .
 
-if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-  docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+# 3) Run (mount project → /workspace so CMD 'uvicorn api:app' can see api.py)
+if $DOCKER ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+  $DOCKER rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 fi
-
-echo "Starting container on port $PORT ..."
-docker run -d --name "$CONTAINER_NAME" -p "$PORT:8000" \
-  -v "$(pwd)/models:/app/models:ro" \
-  -v "$(pwd)/$API_FILE:/app/api_detectron2.py:ro" \
+echo "▶️  Starting container '$CONTAINER_NAME' on :$PORT ..."
+$DOCKER run -d --name "$CONTAINER_NAME" -p "$PORT:8000" \
+  -v "$(pwd):/workspace:ro" \
   "$IMAGE_NAME"
 
-echo -n "Waiting for API"
+# 4) Give Uvicorn a moment to boot
+echo -n "⏳ Waiting for API to start"
 for i in {1..30}; do
-  sleep 1
-  if curl -s "http://127.0.0.1:${PORT}/" >/dev/null; then
-    echo -e "\nAPI is up."; break
-  fi
-  echo -n "."
-  if [[ "$i" -eq 30 ]]; then
-    echo -e "\nAPI did not start in time."; docker logs "$CONTAINER_NAME" | tail -n 100; exit 1
-  fi
+  sleep 1; echo -n "."
+  code=$(
+    curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT}/docs" || echo 000
+  )
+  [[ "$code" == "200" || "$code" == "404" ]] && break
 done
+echo
 
-read -rp "Enter image path to predict: " IMG
-[[ -f "$IMG" ]] || { echo "File not found: $IMG"; exit 2; }
+# 5) Ask for an image & predict
+read -rp "📸 Enter image path to predict: " IMG
+if [[ ! -f "$IMG" ]]; then
+  echo "❌ File not found: $IMG"; exit 2
+fi
+echo "📤 POST http://127.0.0.1:${PORT}/predict"
+if python3 -c "import sys" 2>/dev/null; then
+  curl -sS -X POST "http://127.0.0.1:${PORT}/predict" -F "file=@${IMG}" | python3 -m json.tool
+else
+  curl -sS -X POST "http://127.0.0.1:${PORT}/predict" -F "file=@${IMG}"
+fi
 
-curl -sS -X POST "http://127.0.0.1:${PORT}/predict" -F "file=@${IMG}" | python3 -m json.tool || true
-echo "Done. Stop with: docker rm -f $CONTAINER_NAME"
+echo "✅ Done. Stop the API with: $DOCKER rm -f $CONTAINER_NAME"
