@@ -1,5 +1,6 @@
 # Base image with Ubuntu + Python 3.10 (no CUDA)
-FROM python:3.10-slim
+FROM python:3.9-slim-bullseye
+
 
 # Working directory inside the container
 WORKDIR /workspace
@@ -34,11 +35,11 @@ RUN python3 -m pip install --upgrade pip
 # Install PyTorch (CPU only, no CUDA)
 # ------------------------------
 # 2) Install CPU PyTorch that Detectron2 has wheels for (torch 1.13.1)
-RUN python -m pip install --no-cache-dir \
-    torch==1.13.1+cpu \
-    torchvision==0.14.1+cpu \
-    -f https://download.pytorch.org/whl/cpu/torch_stable.html
-
+RUN python -m pip install --upgrade pip && \
+    python -m pip install --no-cache-dir \
+        torch==1.10.0+cpu \
+        torchvision==0.11.1+cpu \
+        -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
 
 
@@ -46,7 +47,7 @@ RUN python -m pip install --no-cache-dir \
 # 3) Install Detectron2 from prebuilt CPU wheels for torch1.13
 RUN python -m pip install --no-cache-dir \
     detectron2 \
-    -f https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch1.13/index.html
+    -f https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch1.10/index.html
 
 # ------------------------------
 # Install additional ML libraries
