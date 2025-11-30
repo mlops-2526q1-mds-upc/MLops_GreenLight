@@ -34,7 +34,7 @@ def load_model_and_classes():
     """
     models_dir = "models"
 
-    weights_path = os.path.join("../models", "model_final.pth")
+    weights_path = os.path.join(models_dir, "model_final.pth")
     classes_path = os.path.join(models_dir, "classes.json")
 
     if not os.path.exists(weights_path):
