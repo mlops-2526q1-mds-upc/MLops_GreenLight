@@ -206,3 +206,5 @@ container_commands.sh
 deepchecks/cls_data
 
 MLOPS.pem
+
+model_final.pth
