@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
 
-
+print(1)
 
 
 app = FastAPI(title="Red Light Detection API")
@@ -62,6 +62,7 @@ def load_model_and_classes():
     return predictor, id_to_class
 
 
+print(2)
 predictor, id_to_class = load_model_and_classes()
 
 
@@ -116,3 +117,4 @@ async def predict(file: UploadFile = File(...)):
         }
     )
 
+print(3)
