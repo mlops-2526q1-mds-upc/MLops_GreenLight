@@ -68,8 +68,24 @@ RUN pip install --no-cache-dir \
     dvc \
     fastapi \
     "uvicorn[standard]" \
-    pillow \
-    python-multipart
+    "pillow<10" \
+    python-multipart \
+    "numpy<2.0"
+
+RUN pip install --no-cache-dir --force-reinstall \
+    "numpy==1.24.4" \
+    "pillow==9.5.0"
+
+
+# -- optional --    
+RUN python - <<'PY'
+import PIL, numpy, torch, PIL.Image as I
+print("Pillow", PIL.__version__)
+print("NumPy", numpy.__version__)
+print("Torch", torch.__version__)
+print("Has Image.LINEAR?", hasattr(I,"LINEAR"))
+PY
+
 
 
 # ------------------------------
@@ -84,4 +100,11 @@ EXPOSE 8000
 # Default command when container starts
 # ------------------------------
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+# ------------------------------
+# Install additional ML libraries
+# ------------------------------
+
+
 
