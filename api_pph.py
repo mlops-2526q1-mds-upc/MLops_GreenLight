@@ -34,7 +34,7 @@ def load_model_and_classes():
     """
     models_dir = "models"
 
-    weights_path = os.path.join(models_dir, "model_final.pth")
+    weights_path = os.path.join("../models", "model_final.pth")
     classes_path = os.path.join(models_dir, "classes.json")
 
     if not os.path.exists(weights_path):
@@ -52,24 +52,28 @@ def load_model_and_classes():
         model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
     )
 
+        # Load id_to_class mapping (keys are strings in JSON)
+    with open(classes_path, "r") as f:
+        mapping = json.load(f)
+    id_to_class = mapping.get("id_to_class", {})
+    num_classes = len(id_to_class)
+
     # 2) Apply your custom training settings that matter for inference
     cfg.MODEL.WEIGHTS = weights_path
-    cfg.MODEL.DEVICE = "cpu"            # t3.micro -> CPU only
+    cfg.MODEL.DEVICE = "cpu"      
+    cfg.MODEL.ROI_HEADS.NUM_CLASSES = num_classes       # t3.micro -> CPU only
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5     # or whatever you like
 
     predictor = DefaultPredictor(cfg)
 
-    # Load id_to_class mapping (keys are strings in JSON)
-    with open(classes_path, "r") as f:
-        mapping = json.load(f)
-    id_to_class = mapping.get("id_to_class", {})
+
 
     return predictor, id_to_class
 
 
-print(2)
-predictor, id_to_class = load_model_and_classes()
 
+predictor, id_to_class = load_model_and_classes()
+print(2)
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
