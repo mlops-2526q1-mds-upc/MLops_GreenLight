@@ -17,6 +17,9 @@ from fastapi.responses import JSONResponse
 
 from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
+from detectron2.config import get_cfg
+from detectron2 import model_zoo
+
 
 print(1)
 
@@ -26,31 +29,33 @@ app = FastAPI(title="Red Light Detection API")
 
 def load_model_and_classes():
     """
-    Load Detectron2 config + trained weights + class mapping.
-    Uses the artifacts produced by your train.py:
-      - models/config.yaml
-      - models/model_final.pth
-      - models/classes.json
+    Load Detectron2 config + trained weights + class mapping
+    WITHOUT reading the auto-generated config.yaml.
     """
     models_dir = "models"
 
-    cfg_path = os.path.join(models_dir, "config.yaml")
     weights_path = os.path.join(models_dir, "model_final.pth")
     classes_path = os.path.join(models_dir, "classes.json")
 
-    if not os.path.exists(cfg_path):
-        raise FileNotFoundError(f"Config file not found: {cfg_path}")
     if not os.path.exists(weights_path):
         raise FileNotFoundError(f"Weights file not found: {weights_path}")
     if not os.path.exists(classes_path):
         raise FileNotFoundError(f"Classes file not found: {classes_path}")
 
-    # Load Detectron2 config
+
+
     cfg = get_cfg()
-    cfg.merge_from_file(cfg_path)
+
+    # 1) Start from the same base config used for training
+    #    (in your YAML: COCO-Detection/faster_rcnn_R_50_FPN_3x) :contentReference[oaicite:4]{index=4}
+    cfg.merge_from_file(
+        model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
+    )
+
+    # 2) Apply your custom training settings that matter for inference
     cfg.MODEL.WEIGHTS = weights_path
-    cfg.MODEL.DEVICE = "cpu"  # t3.micro -> CPU only
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # adjust if needed
+    cfg.MODEL.DEVICE = "cpu"            # t3.micro -> CPU only
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5     # or whatever you like
 
     predictor = DefaultPredictor(cfg)
 
