@@ -4,12 +4,21 @@ from io import BytesIO
 
 import numpy as np
 import torch
-from PIL import Image
+
+try:
+    from PIL import Image as _Image
+    if not hasattr(_Image, "LINEAR") and hasattr(_Image, "BILINEAR"):
+        _Image.LINEAR = _Image.BILINEAR
+except Exception:
+    pass
+
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 
 from detectron2.config import get_cfg
 from detectron2.engine import DefaultPredictor
+
+
 
 
 app = FastAPI(title="Red Light Detection API")
