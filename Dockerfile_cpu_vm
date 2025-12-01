@@ -4,7 +4,6 @@ FROM python:3.9-slim-bullseye
 
 # Working directory inside the container
 WORKDIR /workspace
-COPY . .
 
 # Prevent Python from buffering stdout and stderr
 ENV PYTHONUNBUFFERED=1
