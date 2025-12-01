@@ -55,8 +55,13 @@ def load_model_and_classes():
         # Load id_to_class mapping (keys are strings in JSON)
     with open(classes_path, "r") as f:
         mapping = json.load(f)
-    id_to_class = mapping.get("id_to_class", {})
-    num_classes = len(id_to_class)
+    
+    if "class_to_id" in mapping:
+        id_to_class = {v: k for k, v in mapping["class_to_id"].items()}
+    else:
+        id_to_class = mapping.get("id_to_class", {})
+    
+    num_classes = len(id_to_class) 
 
     # 2) Apply your custom training settings that matter for inference
     cfg.MODEL.WEIGHTS = weights_path
