@@ -75,6 +75,8 @@ def load_model_and_classes():
 predictor, id_to_class = load_model_and_classes()
 print(2)
 
+
+from PIL import Image 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     """
