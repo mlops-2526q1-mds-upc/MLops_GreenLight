@@ -51,18 +51,25 @@ else:
 # =====================================================
 # 1. DagsHub / MLflow setup
 # =====================================================
-repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
-repo_name = os.getenv("DAGSHUB_REPO_NAME")
+disable_dagshub = os.getenv("MLOPS_DISABLE_DAGSHUB", "").strip().lower() in {"1", "true", "yes"}
 
-if not repo_owner or not repo_name:
-    print("ERROR: DagsHub configuration missing!")
-    print("Please create a .env file with:")
-    print("DAGSHUB_REPO_OWNER=your_username")
-    print("DAGSHUB_REPO_NAME=your_repo_name")
-    sys.exit(1)
+if not disable_dagshub:
+    repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
+    repo_name = os.getenv("DAGSHUB_REPO_NAME")
 
-dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
-mlflow.set_experiment("GreenLight Fine-Tuning")
+    if not repo_owner or not repo_name:
+        print("ERROR: DagsHub configuration missing!")
+        print("Please create a .env file with:")
+        print("DAGSHUB_REPO_OWNER=your_username")
+        print("DAGSHUB_REPO_NAME=your_repo_name")
+        sys.exit(1)
+
+    dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+    mlflow.set_experiment("GreenLight Fine-Tuning")
+else:
+    # Use local file-based MLflow tracking for testing
+    mlflow.set_tracking_uri("file:./mlruns")
+    mlflow.set_experiment("GreenLight Fine-Tuning")
 
 # ======================
 # TEMPORARY PLACEHOLDER
