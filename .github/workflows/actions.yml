@@ -41,6 +41,8 @@ jobs:
             -e DEVICE_MODE=cpu \
             -e CODECARBON_DISABLED=1 \
             -e MLOPS_DISABLE_DAGSHUB=1 \
+            -e DAGSHUB_REPO_OWNER=test_user \
+            -e DAGSHUB_REPO_NAME=test_repo \
             mlops-greenlight:test \
             bash -c "pip install pytest flit-core && pip install --no-deps -e . && pytest tests/ -m integration -v"
 
