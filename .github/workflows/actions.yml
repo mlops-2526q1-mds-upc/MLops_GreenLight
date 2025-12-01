@@ -42,5 +42,5 @@ jobs:
             -e CODECARBON_DISABLED=1 \
             -e MLOPS_DISABLE_DAGSHUB=1 \
             mlops-greenlight:test \
-            bash -c "pip install pytest && pytest tests/ -m integration -v"
+            bash -c "pip install pytest flit-core && pip install -e . && pytest tests/ -m integration -v"
 
