@@ -17,6 +17,7 @@ from detectron2.data import (
     build_detection_train_loader,
 )
 from detectron2.engine import DefaultTrainer
+from prometheus_client import Gauge, start_http_server
 
 # =====================================================
 # 0. Environment setup (CPU/GPU selection from .env)
@@ -49,20 +50,56 @@ else:
     print(f"[INFO] Using device: {device_str.upper()}")
 
 # =====================================================
-# 1. DagsHub / MLflow setup
+# Prometheus metrics (training-only; exported when run as a script)
 # =====================================================
-repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
-repo_name = os.getenv("DAGSHUB_REPO_NAME")
+TRAIN_DURATION_SECONDS = Gauge(
+    "mlops_train_duration_seconds",
+    "Wall-clock duration of the last training run in seconds.",
+)
+TRAIN_EMISSIONS_KG = Gauge(
+    "mlops_train_emissions_kg",
+    "CO2 emissions in kilograms for the last training run (CodeCarbon).",
+)
+TRAIN_LAST_ITERATION = Gauge(
+    "mlops_train_last_iteration",
+    "Last training iteration number reported by Detectron2 metrics.json.",
+)
+TRAIN_LAST_TOTAL_LOSS = Gauge(
+    "mlops_train_last_total_loss",
+    "Last total_loss value reported by Detectron2 metrics.json.",
+)
+TRAIN_STATUS = Gauge(
+    "mlops_train_status",
+    "Status of the most recent training run (1=success, 0=failure).",
+)
 
-if not repo_owner or not repo_name:
-    print("ERROR: DagsHub configuration missing!")
-    print("Please create a .env file with:")
-    print("DAGSHUB_REPO_OWNER=your_username")
-    print("DAGSHUB_REPO_NAME=your_repo_name")
-    sys.exit(1)
+# =====================================================
+# 1. DagsHub / MLflow setup
+#    (can be disabled for local/CI runs with MLOPS_DISABLE_DAGSHUB=1)
+# =====================================================
+disable_dagshub = os.getenv("MLOPS_DISABLE_DAGSHUB", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
-dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
-mlflow.set_experiment("GreenLight Fine-Tuning")
+if disable_dagshub:
+    # Local file-based MLflow tracking, no network calls
+    mlflow.set_tracking_uri("file:./mlruns")
+    mlflow.set_experiment("GreenLight Fine-Tuning")
+else:
+    repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
+    repo_name = os.getenv("DAGSHUB_REPO_NAME")
+
+    if not repo_owner or not repo_name:
+        print("ERROR: DagsHub configuration missing!")
+        print("Please create a .env file with:")
+        print("DAGSHUB_REPO_OWNER=your_username")
+        print("DAGSHUB_REPO_NAME=your_repo_name")
+        sys.exit(1)
+
+    dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+    mlflow.set_experiment("GreenLight Fine-Tuning")
 
 # ======================
 # TEMPORARY PLACEHOLDER
@@ -161,6 +198,11 @@ class MyTrainer(DefaultTrainer):
 # 5. Main
 # ======================
 if __name__ == "__main__":
+    # Start Prometheus metrics HTTP server (for live scraping by Prometheus/Grafana)
+    metrics_port = int(os.getenv("TRAIN_METRICS_PORT", "8001"))
+    start_http_server(metrics_port)
+    print(f"[INFO] Prometheus metrics server started on port {metrics_port}")
+
     # New dataset paths
     train_root = os.path.join("data", "raw", "dataset_train_rgb")
     test_root = os.path.join("data", "raw", "dataset_test_rgb")
@@ -220,6 +262,12 @@ if __name__ == "__main__":
     mlflow.log_params(emissions_params)
     mlflow.log_metrics(emissions_metrics)
 
+    # Update Prometheus metrics related to emissions / duration
+    duration = float(emissions_metrics.get("duration", 0.0))
+    emissions_kg = float(emissions_metrics.get("emissions", 0.0))
+    TRAIN_DURATION_SECONDS.set(duration)
+    TRAIN_EMISSIONS_KG.set(emissions_kg)
+
     # Persist and log class mappings
     classes_path = os.path.join(cfg.OUTPUT_DIR, "classes.json")
     id_to_class = {v: k for k, v in class_name_to_id.items()}
@@ -260,6 +308,14 @@ if __name__ == "__main__":
             }
             if numeric_metrics:
                 mlflow.log_metrics(numeric_metrics)
+                # Update Prometheus metrics with a few high-signal values
+                if "iteration" in numeric_metrics:
+                    TRAIN_LAST_ITERATION.set(float(numeric_metrics["iteration"]))
+                if "total_loss" in numeric_metrics:
+                    TRAIN_LAST_TOTAL_LOSS.set(float(numeric_metrics["total_loss"]))
         mlflow.log_artifact(metrics_path)
+
+    # Mark the run as successful in Prometheus
+    TRAIN_STATUS.set(1.0)
 
     mlflow.end_run()

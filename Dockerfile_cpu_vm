@@ -70,7 +70,8 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]" \
     "pillow<10" \
     python-multipart \
-    "numpy<2.0"
+    "numpy<2.0" \
+    prometheus_client
 
 RUN pip install --no-cache-dir --force-reinstall \
     "numpy==1.24.4" \

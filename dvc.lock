@@ -23,8 +23,8 @@ stages:
       nfiles: 13433
     - path: mlops_greenlight/convert.py
       hash: md5
-      md5: 5c28ce12c6259cec7d3287656ff5c2b5
-      size: 2092
+      md5: c80666de14db317eb413c8c33ee00453
+      size: 2329
     outs:
     - path: data/processed
       hash: md5
