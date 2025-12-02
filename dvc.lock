@@ -46,11 +46,11 @@ stages:
       nfiles: 13433
     - path: mlops_greenlight/modeling/train.py
       hash: md5
-      md5: b34d6925053314a85ef69c80aacfc78d
-      size: 8613
+      md5: 6e30c5393951a4c31625118347b5280f
+      size: 10854
     outs:
     - path: models/
       hash: md5
-      md5: f9470d649c869c2f668268b7c4590cb4.dir
-      size: 330192526
+      md5: 41237ccb916742e675d81f0c5cde59af.dir
+      size: 330192558
       nfiles: 6

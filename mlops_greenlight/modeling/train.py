@@ -91,15 +91,15 @@ else:
     repo_owner = os.getenv("DAGSHUB_REPO_OWNER")
     repo_name = os.getenv("DAGSHUB_REPO_NAME")
 
-    if not repo_owner or not repo_name:
-        print("ERROR: DagsHub configuration missing!")
-        print("Please create a .env file with:")
-        print("DAGSHUB_REPO_OWNER=your_username")
-        print("DAGSHUB_REPO_NAME=your_repo_name")
-        sys.exit(1)
+if not repo_owner or not repo_name:
+    print("ERROR: DagsHub configuration missing!")
+    print("Please create a .env file with:")
+    print("DAGSHUB_REPO_OWNER=your_username")
+    print("DAGSHUB_REPO_NAME=your_repo_name")
+    sys.exit(1)
 
-    dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
-    mlflow.set_experiment("GreenLight Fine-Tuning")
+dagshub.init(repo_owner=repo_owner, repo_name=repo_name, mlflow=True)
+mlflow.set_experiment("GreenLight Fine-Tuning")
 
 # ======================
 # TEMPORARY PLACEHOLDER
