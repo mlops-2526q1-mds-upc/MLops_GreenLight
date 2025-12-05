@@ -12,7 +12,7 @@ try:
 except Exception:
     pass
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File,HTTPException
 from fastapi.responses import JSONResponse
 
 from detectron2.config import get_cfg
@@ -81,31 +81,50 @@ predictor, id_to_class = load_model_and_classes()
 print(2)
 
 
-from PIL import Image 
+from PIL import Image , UnidentifiedImageError
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
     """
     Accept an image file and return detections + a 'red_light_present' flag.
+    Includes validation and error handling.
     """
-    # Read image bytes
-    image_bytes = await file.read()
-    pil_image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    # Validate file type
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Please upload an image."
+        )
 
-    # Detectron2 expects BGR numpy array
-    image = np.array(pil_image)[:, :, ::-1]
+    try:
+        # Read and decode image
+        image_bytes = await file.read()
+        pil_image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    except UnidentifiedImageError:
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to read image. Unsupported or corrupted file."
+        )
 
-    with torch.no_grad():
-        outputs = predictor(image)
+    try:
+        # Convert to BGR numpy (Detectron2 format)
+        image = np.array(pil_image)[:, :, ::-1]
+
+        with torch.no_grad():
+            outputs = predictor(image)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Inference failed: {str(e)}"
+        )
 
     instances = outputs["instances"].to("cpu")
-
     boxes = instances.pred_boxes.tensor.tolist() if instances.has("pred_boxes") else []
     scores = instances.scores.tolist() if instances.has("scores") else []
     classes = instances.pred_classes.tolist() if instances.has("pred_classes") else []
 
     predictions = []
     for box, score, cls_id in zip(boxes, scores, classes):
-        # JSON keys are strings -> try both int and string
         label = (
             id_to_class.get(str(cls_id))
             or id_to_class.get(cls_id)
@@ -113,14 +132,13 @@ async def predict(file: UploadFile = File(...)):
         )
         predictions.append(
             {
-                "box": box,                  # [x1, y1, x2, y2]
-                "score": float(score),       # confidence
+                "box": box,
+                "score": float(score),
                 "class_id": int(cls_id),
                 "label": label,
             }
         )
 
-    # Simple rule: red_light_present if any 'Red' is detected above threshold
     red_light_present = any(
         p["label"] == "Red" and p["score"] >= 0.5 for p in predictions
     )
